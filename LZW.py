@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """
-LZW Compression & Decompression with GUI (Bit-Level Packaging, 16-bit default)
+MEF University COMP 204 Programming Studio Project, Prof. Muhittin GÖKMEN
+Image and Text Compression & Decompression with LZW Algorithm by Mustafa Garip (Using Bit-Level Packaging, 16-bit default)
+
 -------------------------------------------------------------------------------
 
-Bu program, LZW algoritmasını kullanarak bir resmi (PNG veya BMP) veya metin dosyasını sıkıştırır,
-sıkıştırılmış dosyayı kaydeder ve geri açarak orijinal içeriğe ulaşır. Metin ve görüntüler için
-bit seviyesinde paketleme (bit-level packaging) yapılır. Varsayılan code_length=16 olduğu için
-dictionary overflow sorunu minimize edilir.
+This program compresses an image (.png or .bmp) or a text file (.txt) using the LZW algorithm,
+saves the compressed file, and decompresses it to restore the original content.
+Bit-level packing is applied for both text and images.
+The default code_length=16 minimizes dictionary overflow issues.
 
 Libraries:
   - Pillow (PIL)
@@ -22,50 +24,48 @@ import tkinter as tk
 from tkinter import filedialog, messagebox
 from PIL import Image
 
-# Bit-Level Packaging Functions
+#Bit-Level Packaging
 def int_array_to_binary_string(int_array, code_length):
-    """Tamsayı listesini, belirlenmiş code_length uzunluğunda bit string'e çevirir."""
+    """Converts the integer list into a bit string with the specified code_length"""
 
     return "".join(format(num, f'0{code_length}b') for num in int_array)
 
 def pad_encoded_text(encoded_text):
-    """
-    Bit string'in uzunluğu 8'in katı olacak şekilde padding yapar.
-    En başa 8 bitlik padding miktarı bilgisi ekler.
-    """
+    """Pads the bit string so its length is a multiple of 8. Adds an 8-bit padding size info at the beginning."""
+
     extra_padding = (8 - len(encoded_text) % 8) % 8
     padded_info = format(extra_padding, '08b')
     padded_text = padded_info + encoded_text + ("0" * extra_padding)
     return padded_text
 
 def get_byte_array(padded_encoded_text):
-    """Pad'lenmiş bit string'i bytearray'e dönüştürür."""
+    """Converts the padded bit string into a bytearray."""
 
     return bytearray(int(padded_encoded_text[i:i+8], 2) for i in range(0, len(padded_encoded_text), 8))
 
 def remove_padding(padded_encoded_text):
-    """
-    Baştaki 8 bitlik padding bilgisini okur ve padding'i kaldırarak orijinal bit string'i döndürür.
-    """
+    """Reads the first 8-bit padding info and removes the padding to return the original bit string."""
+
     extra_padding = int(padded_encoded_text[:8], 2)
     return padded_encoded_text[8:-extra_padding] if extra_padding != 0 else padded_encoded_text[8:]
 
 def binary_string_to_int_array(bitstr, code_length):
-    """Bit string'i, sabit code_length uzunluğundaki parçalara bölerek tamsayı listesine dönüştürür."""
+    """Splits the bit string into fixed-size pieces of code_length and converts them into an integer list."""
 
     return [int(bitstr[i:i+code_length], 2) for i in range(0, len(bitstr), code_length)]
 
-# Compression Metrics Functions
+#Compression Metrics
 def calculate_compression_metrics(original_path, compressed_path):
-    """Orijinal ve sıkıştırılmış dosya boyutunu ve oranını hesaplar."""
+    """Calculates the original and compressed file size along with the compression ratio."""
 
     original_size = os.path.getsize(original_path)
     compressed_size = os.path.getsize(compressed_path)
     ratio = compressed_size / original_size if original_size else 0
+    
     return original_size, compressed_size, ratio
 
 def calculate_entropy(data):
-    """Verilen veri için entropiyi (bit/simge) hesaplar."""
+    """Calculates the entropy (bits per symbol) for the given data."""
 
     freq = {}
     for ch in data:
@@ -75,12 +75,13 @@ def calculate_entropy(data):
     return -sum((count/total) * math.log2(count/total) for count in freq.values())
 
 def show_compression_metrics(original_path, compressed_path):
-    """Dosya boyutları ve entropiye ilişkin metrikleri içeren metni döndürür."""
+    """Returns a text containing metrics related to file sizes and entropy."""
 
     orig_size, comp_size, ratio = calculate_compression_metrics(original_path, compressed_path)
 
     with open(original_path, "rb") as f:
         data = f.read()
+
     try:
         data = data.decode("utf-8")
     except UnicodeDecodeError:
@@ -90,12 +91,12 @@ def show_compression_metrics(original_path, compressed_path):
 
     return (f"Original Size: {orig_size} bytes\n"
             f"Compressed Size: {comp_size} bytes\n"
-            f"Compression Ratio: {ratio:.2f}\n"
+            f"Compression Ratio: {ratio:.3f}\n"
             f"Entropy: {entropy_val:.2f} bits/symbol")
 
-# LZW Compression / Decompression Functions
+#LZW Compression / Decompression
 def lzw_compress(uncompressed):
-    """Verilen string'i LZW algoritması ile sıkıştırır ve integer kod listesi döndürür."""
+    """Compresses the given string using the LZW algorithm and returns an integer code list."""
 
     dict_size = 256
     dictionary = {chr(i): i for i in range(dict_size)}
@@ -116,7 +117,7 @@ def lzw_compress(uncompressed):
     return result
 
 def lzw_decompress(compressed):
-    """LZW kod listesinden orijinal string'i yeniden oluşturur."""
+    """Reconstructs the original string from the LZW code list."""
 
     dict_size = 256
     dictionary = {i: chr(i) for i in range(dict_size)}
@@ -127,22 +128,23 @@ def lzw_decompress(compressed):
         if k in dictionary:
             entry = dictionary[k]
         elif k == dict_size:
-            # Özel durum: Kod henüz sözlükte yoksa, w + w[0] eklenir
             entry = w + w[0]
         else:
             raise ValueError(f"Invalid compressed code: {k}")
+
         result.append(entry)
         dictionary[dict_size] = w + entry[0]
         dict_size += 1
         w = entry
     return "".join(result)
 
-# Text File Compression & Decompression (Bit-Level Packaging)
+#Text File Compression & Decompression (Bit-Level Packaging)
 def compress_text_file(filepath, output_path, code_length=16):
-    """Bir metin dosyasını LZW algoritması ve bit-level paketleme kullanarak sıkıştırır."""
+    """Compresses a text file using the LZW algorithm and bit-level packing."""
 
     with open(filepath, "r", encoding="utf-8") as f:
         text = f.read()
+
     codes = lzw_compress(text)
     bit_string = int_array_to_binary_string(codes, code_length)
     padded = pad_encoded_text(bit_string)
@@ -160,14 +162,14 @@ def compress_text_file(filepath, output_path, code_length=16):
     return output_path
 
 def decompress_text_file(filepath, output_txt_path, code_length=16):
-    """Sıkıştırılmış metin dosyasını açar ve orijinal metni bir .txt dosyasına yazar."""
+    """Decompresses the compressed text file and writes the original text to a .txt file."""
 
     with open(filepath, "rb") as f:
         data = pickle.load(f)
+
     if data.get("type") != "text":
-        raise ValueError("Bu dosya metin sıkıştırması içermiyor!")
+        raise ValueError("This file does not contain text compression!")
     
-    # Depolanan code_length değeri varsa kullanılır
     code_length = data.get("code_length", code_length)
     byte_array = data["data"]
     bit_str = "".join(format(byte, '08b') for byte in byte_array)
@@ -180,15 +182,13 @@ def decompress_text_file(filepath, output_txt_path, code_length=16):
 
     return output_txt_path
 
-# Image Pixel Processing Functions
+#Image Pixel Processing
 def get_image_pixels(img, use_diff=False):
-    """
-    Verilen PIL image objesinden piksel verilerini çıkarır.
-    use_diff=True ise, difference methodu uygulanır.
-    """
+    """Extracts pixel data from the given PIL image object. If use_diff=True, the Difference method is applied."""
 
     width, height = img.size
     pixels = list(img.getdata())
+
     if not use_diff:
         return pixels, width, height
     
@@ -204,12 +204,11 @@ def get_image_pixels(img, use_diff=False):
             else:
                 diff = (pixels[idx] - pixels[idx - 1]) % 256
                 diff_pixels.append(diff)
+
     return diff_pixels, width, height
 
 def reconstruct_pixels(diff_pixels, width, height, use_diff=False):
-    """
-    Difference yöntemi ile sıkıştırılmış veride orijinal piksel değerlerini geri hesaplar.
-    """
+    """Recomputes the original pixel values from the compressed data using the Difference method."""
 
     if not use_diff:
         return diff_pixels
@@ -228,12 +227,9 @@ def reconstruct_pixels(diff_pixels, width, height, use_diff=False):
                 pixels.append(original)
     return pixels
 
-# Grayscale Image Compression & Decompression (Bit-Level Packaging)
+#Grayscale Image Compression & Decompression (Bit-Level Packaging)
 def compress_gray_image(filepath, output_path, use_diff=False, code_length=16):
-    """
-    Girilen resmi 'L' (grayscale) modunda açar/dönüştürür,
-    piksel değerlerini LZW algoritması ve bit-level paketleme ile sıkıştırır.
-    """
+    """Opens and converts the input image to grayscale mode, then compresses the pixel values using the LZW algorithm and bit-level packing."""
 
     img = Image.open(filepath).convert("L")
     pixels, width, height = get_image_pixels(img, use_diff)
@@ -258,13 +254,13 @@ def compress_gray_image(filepath, output_path, use_diff=False, code_length=16):
     return output_path
 
 def decompress_gray_image(filepath, output_image_path, code_length=16):
-    """Sıkıştırılmış grayscale görüntüyü açıp PNG formatında kaydeder."""
+    """Decompresses the compressed grayscale image and saves it in PNG format."""
 
     with open(filepath, "rb") as f:
         data = pickle.load(f)
 
     if data.get("type") != "gray":
-        raise ValueError("Bu dosyada grayscale görüntü sıkıştırması yok!")
+        raise ValueError("This file does not contain grayscale image compression!")
     
     code_length = data.get("code_length", code_length)
     size = data["size"]
@@ -285,12 +281,9 @@ def decompress_gray_image(filepath, output_image_path, code_length=16):
 
     return output_image_path
 
-# Color Image Compression & Decompression (Bit-Level Packaging)
+#Color Image Compression & Decompression (Bit-Level Packaging)
 def compress_color_image(filepath, output_path, use_diff=False, code_length=16):
-    """
-    Renkli resmi (RGB) her bir kanal için ayrı ayrı LZW algoritması ve bit-level paketleme ile sıkıştırır.
-    İsteğe bağlı difference method da uygulanabilir.
-    """
+    """Compresses the color image (RGB) separately for each channel using the LZW algorithm and bit-level packing. The Difference method can be applied optionally."""
 
     img = Image.open(filepath).convert("RGB")
     width, height = img.size
@@ -339,17 +332,17 @@ def compress_color_image(filepath, output_path, use_diff=False, code_length=16):
 
     with open(output_path, "wb") as f:
         pickle.dump(data, f)
+
     return output_path
 
 def decompress_color_image(filepath, output_image_path, code_length=16):
-    """
-    Sıkıştırılmış renkli görüntüyü açar; her kanalı çözüp yeniden birleştirerek orijinal RGB görüntüsünü oluşturur.
-    """
+    """Decompresses the compressed color image; decodes each channel and reconstructs the original RGB image."""
 
     with open(filepath, "rb") as f:
         data = pickle.load(f)
+
     if data.get("type") != "color":
-        raise ValueError("Bu dosyada color image sıkıştırması yok!")
+        raise ValueError("This file does not contain colored image compression!")
     
     code_length = data.get("code_length", code_length)
     width, height = data["size"]
@@ -370,7 +363,6 @@ def decompress_color_image(filepath, output_image_path, code_length=16):
     unpadded_g = remove_padding(bin_g)
     unpadded_b = remove_padding(bin_b)
 
-    #Her kanal için beklenen bit uzunluğunu kesiyoruz (ihtiyaç halinde)
     if num_codes_r is not None:
         expected_r = num_codes_r * code_length
         unpadded_r = unpadded_r[:expected_r]
@@ -412,9 +404,10 @@ def decompress_color_image(filepath, output_image_path, code_length=16):
 
     out_img = Image.merge("RGB", (r_img, g_img, b_img))
     out_img.save(output_image_path)
+
     return out_img
 
-# Tkinter GUI
+#Tkinter GUI
 class LZWApp:
     def __init__(self, root):
         self.root = root
@@ -463,6 +456,7 @@ class LZWApp:
 
         filename, ext = os.path.splitext(self.filepath)
         output_path = filename + "_compressed.lzw"
+
         try:
             if ext.lower() == ".txt":
                 compress_text_file(self.filepath, output_path)  
@@ -506,7 +500,6 @@ class LZWApp:
             else:
                 info = "Unknown file type!"
             self.lbl_info.config(text=info)
-
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
@@ -519,13 +512,14 @@ class LZWApp:
 
         if not compressed_file:
             return
+
         try:
             metrics = show_compression_metrics(self.filepath, compressed_file)
             messagebox.showinfo("Compression Metrics", metrics)
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
-# Main Program
+#Main Program
 if __name__ == "__main__":
     root = tk.Tk()
     app = LZWApp(root)
