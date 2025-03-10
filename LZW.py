@@ -147,30 +147,39 @@ def progressive_lzw_decompress(bit_string, initial_code_length=9, max_code_lengt
     dictionary = {i: chr(i) for i in range(dict_size)}
     current_code_length = initial_code_length
     index = 0
+
+    # İlk kodu oku
     if index + current_code_length > len(bit_string):
         return ""
-    code = int(bit_string[index:index+current_code_length], 2)
+    code = int(bit_string[index:index + current_code_length], 2)
     index += current_code_length
     w = dictionary[code]
     result = w
-    
+
+    # Bit string boyunca devam et
     while index < len(bit_string):
+        # Yeni kodu okumadan önce, sözlük büyüklüğüne göre code length'i güncelle
+        if dict_size >= (1 << current_code_length) and current_code_length < max_code_length:
+            current_code_length += 1
+
         if index + current_code_length > len(bit_string):
             break
-        code = int(bit_string[index:index+current_code_length], 2)
+
+        code = int(bit_string[index:index + current_code_length], 2)
         index += current_code_length
+
         if code in dictionary:
             entry = dictionary[code]
         elif code == dict_size:
             entry = w + w[0]
         else:
             raise ValueError(f"Invalid compressed code: {code}")
+
         result += entry
         dictionary[dict_size] = w + entry[0]
         dict_size += 1
-        if dict_size >= (1 << current_code_length) and current_code_length < max_code_length:
-            current_code_length += 1
         w = entry
+        
     return result
 
 # ------------------------------
